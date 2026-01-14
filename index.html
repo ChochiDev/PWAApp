@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DualPay Calculator</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;600;700&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            bg: '#E0F2F1', // Light Mint with cold tone
+                            accent: '#004E64', // Deep Marine Blue
+                            accentLight: '#006D8A',
+                            input: '#F0F8FF', // Ice Blue
+                            danger: '#EF4444',
+                        }
+                    },
+                    fontFamily: {
+                        display: ['Comfortaa', 'cursive'],
+                        body: ['Montserrat', 'sans-serif'],
+                    },
+                    animation: {
+                        'float': 'float 10s infinite ease-in-out',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0) rotate(0deg) scale(1)' },
+                            '33%': { transform: 'translateY(-15px) rotate(5deg) scale(1.1)' },
+                            '66%': { transform: 'translateY(10px) rotate(-5deg) scale(0.95)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Global Reset & Base */
+        body, html {
+            height: 100%;
+            overflow: hidden; /* Prevent body scroll, handle inside app */
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Dynamic Background Grid */
+        #bg-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            grid-template-rows: repeat(auto-fill, minmax(60px, 1fr));
+            opacity: 0.04; /* Watermark effect */
+            pointer-events: none;
+        }
+
+        .bg-symbol {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Comfortaa', cursive;
+            font-size: 1.5rem;
+            color: #004E64;
+            will-change: transform;
+        }
+
+        /* Glassmorphism Utilities */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 10px 30px -5px rgba(0, 78, 100, 0.25);
+        }
+
+        .input-glass {
+            background: rgba(240, 248, 255, 0.85); /* Ice blue tint */
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(0, 78, 100, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .input-glass:focus-within {
+            border-color: #004E64;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(0, 78, 100, 0.15);
+        }
+
+        /* Custom Scrollbar for app container */
+        .app-scroll::-webkit-scrollbar { width: 4px; }
+        .app-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-brand-bg text-slate-800 font-body relative">
+
+    <div id="bg-container"></div>
+
+    <div class="h-full w-full flex flex-col items-center justify-center p-4 sm:p-6">
+        
+        <main class="glass-panel w-full max-w-md h-full max-h-[850px] rounded-3xl flex flex-col relative overflow-hidden transition-all duration-300">
+            
+            <header class="pt-8 pb-4 px-6 flex flex-col items-center space-y-3 shrink-0">
+                <div class="w-16 h-16 bg-brand-accent rounded-2xl shadow-lg flex items-center justify-center text-white text-xl font-display font-bold">
+                    € ⇄ лв
+                </div>
+                <h1 class="font-display font-bold text-2xl text-brand-accent tracking-wide">DualPay</h1>
+            </header>
+
+            <div class="flex-1 overflow-y-auto app-scroll px-6 pb-6 space-y-6">
+                
+                <section class="space-y-2">
+                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Сума за плащане</label>
+                    <div class="input-glass rounded-xl flex items-center p-1 h-16">
+                        <input type="number" inputmode="decimal" id="amountDue" placeholder="0.00" 
+                            class="flex-1 bg-transparent h-full px-4 text-2xl font-bold text-slate-800 outline-none placeholder-slate-300">
+                        
+                        <div class="bg-white/50 rounded-lg p-1 flex space-x-1 border border-slate-100 mr-1">
+                            <button class="curr-toggle-btn px-3 py-2 rounded-md text-sm font-bold transition-all bg-brand-accent text-white shadow-sm" data-currency="BGN" onclick="setDueCurrency('BGN')">BGN</button>
+                            <button class="curr-toggle-btn px-3 py-2 rounded-md text-sm font-bold text-slate-400 transition-all hover:text-brand-accent" data-currency="EUR" onclick="setDueCurrency('EUR')">EUR</button>
+                        </div>
+                    </div>
+                </section>
+
+                <hr class="border-brand-accent/10">
+
+                <section class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Получени средства</label>
+                    </div>
+
+                    <div class="input-glass rounded-xl flex items-center px-4 h-14">
+                        <span class="text-slate-400 font-display font-bold mr-3 text-lg">лв</span>
+                        <input type="number" inputmode="decimal" id="paidBGN" placeholder="Платено в лева" 
+                            class="flex-1 bg-transparent h-full text-xl font-medium text-slate-700 outline-none placeholder-slate-300">
+                    </div>
+
+                    <div class="input-glass rounded-xl flex items-center px-4 h-14">
+                        <span class="text-slate-400 font-display font-bold mr-3 text-lg">€</span>
+                        <input type="number" inputmode="decimal" id="paidEUR" placeholder="Платено в евро" 
+                            class="flex-1 bg-transparent h-full text-xl font-medium text-slate-700 outline-none placeholder-slate-300">
+                    </div>
+                </section>
+
+                <div id="errorBox" class="hidden bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium flex items-center animate-pulse">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Недостатъчна сума!
+                </div>
+
+                <section id="resultSection" class="opacity-0 translate-y-4 transition-all duration-500 ease-out">
+                    <div class="bg-brand-accent rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
+                        <div class="absolute -right-6 -top-6 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+                        
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-blue-100 text-xs font-bold uppercase tracking-widest">Ресто</span>
+                            
+                            <div class="flex bg-black/20 rounded-lg p-0.5">
+                                <button onclick="setChangeCurrency('BGN')" id="resBtnBGN" class="px-3 py-1 rounded-md text-xs font-bold bg-white text-brand-accent shadow-sm transition-all">BGN</button>
+                                <button onclick="setChangeCurrency('EUR')" id="resBtnEUR" class="px-3 py-1 rounded-md text-xs font-bold text-blue-200 hover:text-white transition-all">EUR</button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-baseline space-x-2">
+                            <span id="changeValue" class="text-4xl font-display font-bold">0.00</span>
+                            <span id="changeSymbol" class="text-xl font-display opacity-80">лв</span>
+                        </div>
+
+                        <div class="mt-2 pt-2 border-t border-white/20 text-blue-100 text-sm flex items-center">
+                            <span class="opacity-70 mr-2">Еквивалент:</span>
+                            <span id="secondaryValue" class="font-bold">0.00 €</span>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+            <footer class="p-4 bg-brand-accent/5 border-t border-brand-accent/10 text-center shrink-0">
+                <p class="text-xs text-slate-500 font-medium font-display">Курс: 1 EUR = 1.95583 BGN</p>
+                <p class="text-[10px] text-slate-400 mt-1">© Румен Боев</p>
+            </footer>
+
+        </main>
+    </div>
+
+    <script>
+        // --- Constants & State ---
+        const RATE = 1.95583;
+        let state = {
+            dueCurrency: 'BGN', // 'BGN' or 'EUR'
+            changeCurrency: 'BGN',
+            amountDue: 0,
+            paidBGN: 0,
+            paidEUR: 0
+        };
+
+        // --- DOM Elements ---
+        const els = {
+            amountDue: document.getElementById('amountDue'),
+            paidBGN: document.getElementById('paidBGN'),
+            paidEUR: document.getElementById('paidEUR'),
+            errorBox: document.getElementById('errorBox'),
+            resultSection: document.getElementById('resultSection'),
+            changeValue: document.getElementById('changeValue'),
+            changeSymbol: document.getElementById('changeSymbol'),
+            secondaryValue: document.getElementById('secondaryValue'),
+            resBtnBGN: document.getElementById('resBtnBGN'),
+            resBtnEUR: document.getElementById('resBtnEUR'),
+            bgContainer: document.getElementById('bg-container'),
+        };
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            generateBackground();
+            setupPWA();
+            addEventListeners();
+        });
+
+        function addEventListeners() {
+            ['input', 'change', 'keyup'].forEach(evt => {
+                els.amountDue.addEventListener(evt, calculate);
+                els.paidBGN.addEventListener(evt, calculate);
+                els.paidEUR.addEventListener(evt, calculate);
+            });
+        }
+
+        // --- Background Generation (Chessboard) ---
+        function generateBackground() {
+            const cols = Math.ceil(window.innerWidth / 60);
+            const rows = Math.ceil(window.innerHeight / 60);
+            const total = cols * rows;
+            let html = '';
+
+            for (let i = 0; i < total; i++) {
+                const isEven = i % 2 === 0;
+                // Chessboard logic roughly
+                const row = Math.floor(i / cols);
+                const col = i % cols;
+                const symbol = (row + col) % 2 === 0 ? '€' : 'лв';
+                
+                // Randomize animation params for organic feel
+                const duration = 8 + Math.random() * 8;
+                const delay = Math.random() * -10;
+                
+                html += `<div class="bg-symbol" style="animation: float ${duration}s ease-in-out ${delay}s infinite;">${symbol}</div>`;
+            }
+            els.bgContainer.innerHTML = html;
+        }
+
+        // --- Core Logic ---
+        function setDueCurrency(curr) {
+            state.dueCurrency = curr;
+            
+            // Update UI buttons
+            const btns = document.querySelectorAll('.curr-toggle-btn');
+            btns.forEach(btn => {
+                if(btn.dataset.currency === curr) {
+                    btn.className = "curr-toggle-btn px-3 py-2 rounded-md text-sm font-bold transition-all bg-brand-accent text-white shadow-sm";
+                } else {
+                    btn.className = "curr-toggle-btn px-3 py-2 rounded-md text-sm font-bold text-slate-400 transition-all hover:text-brand-accent";
+                }
+            });
+            calculate();
+        }
+
+        function setChangeCurrency(curr) {
+            state.changeCurrency = curr;
+            
+            // Toggle Visuals
+            if (curr === 'BGN') {
+                els.resBtnBGN.className = "px-3 py-1 rounded-md text-xs font-bold bg-white text-brand-accent shadow-sm transition-all";
+                els.resBtnEUR.className = "px-3 py-1 rounded-md text-xs font-bold text-blue-200 hover:text-white transition-all";
+            } else {
+                els.resBtnEUR.className = "px-3 py-1 rounded-md text-xs font-bold bg-white text-brand-accent shadow-sm transition-all";
+                els.resBtnBGN.className = "px-3 py-1 rounded-md text-xs font-bold text-blue-200 hover:text-white transition-all";
+            }
+            calculate();
+        }
+
+        function calculate() {
+            // Get inputs
+            const dueInput = parseFloat(els.amountDue.value) || 0;
+            const pBgn = parseFloat(els.paidBGN.value) || 0;
+            const pEur = parseFloat(els.paidEUR.value) || 0;
+
+            if (dueInput === 0 && pBgn === 0 && pEur === 0) {
+                resetUI();
+                return;
+            }
+
+            // Convert everything to BGN for calculation base
+            let totalDueBGN = state.dueCurrency === 'BGN' ? dueInput : dueInput * RATE;
+            let totalPaidBGN = pBgn + (pEur * RATE);
+
+            let changeBGN = totalPaidBGN - totalDueBGN;
+
+            // Handle Insufficient Funds
+            // Floating point tolerance check (epsilon)
+            if (changeBGN < -0.005) {
+                els.errorBox.classList.remove('hidden');
+                els.resultSection.classList.add('opacity-0', 'translate-y-4');
+                return;
+            } else {
+                els.errorBox.classList.add('hidden');
+                els.resultSection.classList.remove('opacity-0', 'translate-y-4');
+            }
+
+            // Display Results
+            let displayChange, secondaryChange;
+            
+            if (state.changeCurrency === 'BGN') {
+                displayChange = changeBGN;
+                secondaryChange = changeBGN / RATE;
+                els.changeSymbol.textContent = 'лв';
+                els.secondaryValue.textContent = secondaryChange.toFixed(2) + ' €';
+            } else {
+                displayChange = changeBGN / RATE;
+                secondaryChange = changeBGN;
+                els.changeSymbol.textContent = '€';
+                els.secondaryValue.textContent = secondaryChange.toFixed(2) + ' лв';
+            }
+
+            els.changeValue.textContent = displayChange.toFixed(2);
+        }
+
+        function resetUI() {
+            els.errorBox.classList.add('hidden');
+            els.resultSection.classList.add('opacity-0', 'translate-y-4');
+        }
+
+        // --- PWA & Icon Generation ---
+        function setupPWA() {
+            // 1. Create Icon
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // Draw Background (Rounded Rect simulated by fill)
+            ctx.fillStyle = '#004E64';
+            // Simple rounding not strictly needed for manifest icon as OS does it, but good for favicon
+            ctx.beginPath();
+            ctx.rect(0, 0, 512, 512); 
+            ctx.fill();
+
+            // Draw Text
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 140px Comfortaa';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('€ ⇄ лв', 256, 256);
+
+            const iconUrl = canvas.toDataURL('image/png');
+
+            // Set Favicon
+            let link = document.querySelector("link[rel~='icon']");
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.head.appendChild(link);
+            }
+            link.href = iconUrl;
+
+            // 2. Create Manifest
+            const manifest = {
+                name: "DualPay Calculator",
+                short_name: "DualPay",
+                start_url: ".",
+                display: "standalone",
+                background_color: "#E0F2F1",
+                theme_color: "#004E64",
+                icons: [{
+                    src: iconUrl,
+                    sizes: "512x512",
+                    type: "image/png"
+                }]
+            };
+
+            const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+            const manifestUrl = URL.createObjectURL(manifestBlob);
+            
+            const manifestLink = document.createElement('link');
+            manifestLink.rel = 'manifest';
+            manifestLink.href = manifestUrl;
+            document.head.appendChild(manifestLink);
+
+            // 3. Service Worker (Offline Capability)
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    self.addEventListener('install', (e) => {
+                        e.waitUntil(self.skipWaiting());
+                    });
+                    self.addEventListener('fetch', (e) => {
+                        // Cache first logic or just network only for single file logic
+                        // Since it's a single file generated dynamically, simplistic caching:
+                        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+                    });
+                `;
+                const swBlob = new Blob([swCode], {type: 'application/javascript'});
+                const swUrl = URL.createObjectURL(swBlob);
+
+                navigator.serviceWorker.register(swUrl)
+                    .then(() => console.log('SW Registered'))
+                    .catch(err => console.error('SW Error:', err));
+            }
+        }
+    </script>
+</body>
+</html>
